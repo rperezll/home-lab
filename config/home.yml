@@ -1,0 +1,225 @@
+- name: HomeLab
+  hide-desktop-navigation: true
+  center-vertically: true
+  columns:
+    - size: small
+      widgets:
+        - type: calendar
+          first-day-of-week: monday
+
+        - type: custom-api
+          title: Tailscale Devices
+          title-url: ${TAILSCALE_DASHBOARD_URL}
+          url: ${TAILSCALE_API_URL}
+          headers:
+            Authorization: Bearer ${TAILSCALE_API_KEY}
+          cache: 10m
+          template: |
+            {{/* User Variables */}}
+            {{/* Set to true if you'd like an indicator for online devices */}}
+            {{ $enableOnlineIndicator := true }}
+
+            <style>
+              .device-info-container {
+                position: relative;
+                overflow: hidden;
+                height: 1.5em;
+              }
+
+              .device-info {
+                display: flex;
+                transition: transform 0.2s ease, opacity 0.2s ease;
+              }
+
+              .device-ip {
+                position: absolute;
+                top: 0;
+                left: 0;
+                transform: translateY(-100%);
+                opacity: 0;
+                transition: transform 0.2s ease, opacity 0.2s ease;
+              }
+
+              .device-info-container:hover .device-info {
+                transform: translateY(100%);
+                opacity: 0;
+              }
+
+              .device-info-container:hover .device-ip {
+                transform: translateY(0);
+                opacity: 1;
+              }
+
+              .update-indicator {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background-color: var(--color-primary);
+                display: inline-block;
+                margin-left: 4px;
+                vertical-align: middle;
+              }
+
+              .offline-indicator {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background-color: var(--color-negative);
+                display: inline-block;
+                margin-left: 4px;
+                vertical-align: middle;
+              }
+
+              .online-indicator {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background-color: var(--color-positive);
+                display: inline-block;
+                margin-left: 4px;
+                vertical-align: middle;
+              }
+
+              .device-name-container {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+              }
+
+              .indicators-container {
+                display: flex;
+                align-items: center;
+                gap: 4px;
+              }
+            </style>
+            <ul class="list list-gap-10 collapsible-container" data-collapse-after="6">
+              {{ range .JSON.Array "devices" }}
+              <li>
+                <div class="flex items-center gap-10">
+                  <div class="device-name-container grow">
+                    <span class="size-h4 block text-truncate color-primary">
+                      {{ findMatch "^([^.]+)" (.String "name") }}
+                    </span>
+                    <div class="indicators-container">
+                      {{ $lastSeen := .String "lastSeen" | parseTime "rfc3339" }}
+                      {{ if not ($lastSeen.After (offsetNow "-10s")) }}
+                      {{ $lastSeenTimezoned := $lastSeen.In now.Location }}
+                      <span class="offline-indicator" data-popover-type="text"
+                        data-popover-text="Offline - Last seen {{ $lastSeenTimezoned.Format " Jan 2 3:04pm" }}"></span>
+                      {{ else if $enableOnlineIndicator }}
+                        <span class="online-indicator" data-popover-type="text" data-popover-text="Online"></span>
+                      {{ end }}
+                    </div>
+                  </div>
+                </div>
+                <div class="device-info-container">
+                  <ul class="list-horizontal-text device-info">
+                    <li>{{ .String "os" }}</li>
+                    <li>{{ .String "user" }}</li>
+                  </ul>
+                  <div class="device-ip">
+                    {{ .String "addresses.0"}}
+                  </div>
+                </div>
+              </li>
+              {{ end }}
+
+    - size: full
+      widgets:
+        - type: search
+          search-engine: google
+          autofocus: true
+
+        - type: monitor
+          cache: 1m
+          title: External
+          sites:
+            - title: Home Assistant
+              url: ${HA_EXTERNAL_URL}
+              icon: si:homeassistant
+            - title: ESPHome
+              url: ${ESPH_EXTERNAL_URL}
+              icon: si:esphome
+            - title: Frigate
+              url: ${FRIGATE_EXTERNAL_URL}
+              icon: si:gitea
+            - title: Zigbee2MQTT
+              url: ${Z2M_EXTERNAL_URL}
+              icon: si:zigbee2mqtt
+            - title: Immich
+              url: ${IMMICH_EXTERNAL_URL}
+              icon: si:immich
+            - title: Vaultwarden
+              url: ${VWARDEN_EXTERNAL_URL}
+              icon: si:vaultwarden
+
+        - type: monitor
+          cache: 1m
+          title: Internal
+          sites:
+            - title: Home Assistant
+              url: ${HA_URL}
+              icon: si:homeassistant
+            - title: ESPHome
+              url: ${ESPH_URL}
+              icon: si:esphome
+            - title: Frigate
+              url: ${FRIGATE_URL}
+              icon: si:gitea
+            - title: Zigbee2MQTT
+              url: ${Z2M_URL}
+              icon: si:zigbee2mqtt
+            - title: Immich
+              url: ${IMMICH_URL}
+              icon: si:immich
+            - title: Vaultwarden
+              url: ${VWARDEN_URL}
+              icon: si:vaultwarden
+    
+        - type: reddit
+          subreddit: Tailscale
+          style: horizontal-cards
+        - type: reddit
+          subreddit: homeassistant
+          style: horizontal-cards
+
+    - size: small
+      widgets:
+        - type: weather
+          location: ${LOCATION}
+          units: metric
+          hour-format: 24h
+
+        - type: custom-api
+          title: Immich stats
+          cache: 1d
+          url: ${IMMICH_EXTERNAL_URL}/api/server/statistics
+          headers:
+            x-api-key: ${IMMICH_API_KEY}
+            Accept: application/json
+          template: |
+            <div class="flex justify-between text-center">
+              <div>
+                  <div class="color-highlight size-h3">{{ .JSON.Int "photos" | formatNumber }}</div>
+                  <div class="size-h6">PHOTOS</div>
+              </div>
+              <div>
+                  <div class="color-highlight size-h3">{{ .JSON.Int "videos" | formatNumber }}</div>
+                  <div class="size-h6">VIDEOS</div>
+              </div>
+              <div>
+                  <div class="color-highlight size-h3">{{ div (.JSON.Int "usage" | toFloat) 1073741824 | toInt | formatNumber }}GB</div>
+                  <div class="size-h6">USAGE</div>
+              </div>
+            </div>
+
+        - type: releases
+          show-source-icon: true
+          repositories:
+            - immich-app/immich
+            - home-assistant/home-assistant
+            - tailscale/tailscale
+            - blakeblackshear/frigate
+            - Koenkk/zigbee2mqtt
+            - dani-garcia/vaultwarden
+            - esphome/esphome
